@@ -8,10 +8,22 @@ import {
   ScrollView,
   ActivityIndicator,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
+
+// Lazy load audio modules (may not be available in older builds)
+let Speech: any = null;
+let Audio: any = null;
+let audioModulesAvailable = false;
+
+try {
+  Speech = require('expo-speech');
+  Audio = require('expo-av').Audio;
+  audioModulesAvailable = true;
+} catch (e) {
+  console.log('Audio modules not available (rebuild required for STT/TTS audio features)');
+}
 
 // =============================================================================
 // RunAnywhere SDK Integration
@@ -329,6 +341,15 @@ export default function HomeScreen() {
   };
 
   const startRecording = async () => {
+    if (!audioModulesAvailable || !Audio) {
+      Alert.alert(
+        'Rebuild Required',
+        'Audio recording requires expo-av. Please rebuild the app with:\n\neas build --platform android --profile development',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     try {
       // Request permissions
       const { status } = await Audio.requestPermissionsAsync();
@@ -449,6 +470,15 @@ export default function HomeScreen() {
 
   // Use System TTS (no model needed, always works)
   const speakWithSystemTTS = async () => {
+    if (!audioModulesAvailable || !Speech) {
+      Alert.alert(
+        'Rebuild Required',
+        'System TTS requires expo-speech. Please rebuild the app with:\n\neas build --platform android --profile development',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
     if (isSpeaking) {
       Speech.stop();
       setIsSpeaking(false);
@@ -465,7 +495,7 @@ export default function HomeScreen() {
         setIsSpeaking(false);
         setResponse(`✅ Finished speaking: "${ttsText}"`);
       },
-      onError: (error) => {
+      onError: (error: any) => {
         setIsSpeaking(false);
         setError(`System TTS error: ${error}`);
       },
@@ -508,6 +538,11 @@ export default function HomeScreen() {
   };
 
   const playAudio = async (uri: string) => {
+    if (!audioModulesAvailable || !Audio) {
+      console.log('Audio playback not available (expo-av not installed)');
+      return;
+    }
+    
     try {
       // Stop previous sound if playing
       if (soundRef.current) {
@@ -520,7 +555,7 @@ export default function HomeScreen() {
       );
       soundRef.current = sound;
       
-      sound.setOnPlaybackStatusUpdate((status) => {
+      sound.setOnPlaybackStatusUpdate((status: any) => {
         if (status.isLoaded && status.didJustFinish) {
           setIsPlaying(false);
         }
@@ -534,7 +569,7 @@ export default function HomeScreen() {
   };
 
   const stopAudio = async () => {
-    if (soundRef.current) {
+    if (soundRef.current && audioModulesAvailable) {
       await soundRef.current.stopAsync();
       setIsPlaying(false);
     }
