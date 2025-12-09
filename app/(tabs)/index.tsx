@@ -11,6 +11,7 @@ import {
   Animated,
   Modal,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -426,6 +427,19 @@ export default function RunAnywhereDemo() {
       return;
     }
 
+    // Android limitation: expo-av uses MediaRecorder which doesn't support true WAV format
+    // The SDK requires 16kHz mono 16-bit PCM WAV for Whisper models
+    if (Platform.OS === 'android') {
+      Alert.alert(
+        'Android Limitation',
+        'STT on Android requires raw PCM audio recording which expo-av doesn\'t support.\n\n' +
+        'For full STT functionality, use the React Native sample app which includes react-native-live-audio-stream.\n\n' +
+        'iOS STT works correctly with expo-av.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     try {
       const { status } = await Audio.requestPermissionsAsync();
       if (status !== 'granted') {
@@ -438,17 +452,19 @@ export default function RunAnywhereDemo() {
         playsInSilentModeIOS: true,
       });
 
-      // Use WAV format for Whisper STT compatibility
+      // iOS WAV format for Whisper STT compatibility
       // Whisper requires: 16kHz, mono, 16-bit PCM WAV
+      // Note: This only works properly on iOS - expo-av on Android uses MediaRecorder
+      // which doesn't support raw PCM/WAV output
       const wavRecordingOptions = {
         isMeteringEnabled: true,
         android: {
-          extension: '.wav',
-          outputFormat: Audio.AndroidOutputFormat.DEFAULT,
-          audioEncoder: Audio.AndroidAudioEncoder.DEFAULT,
+          extension: '.m4a',
+          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
+          audioEncoder: Audio.AndroidAudioEncoder.AAC,
           sampleRate: 16000,
           numberOfChannels: 1,
-          bitRate: 256000,
+          bitRate: 128000,
         },
         ios: {
           extension: '.wav',
@@ -705,18 +721,32 @@ export default function RunAnywhereDemo() {
 
   const renderSTTContent = () => (
     <View style={styles.contentSection}>
-      {isModelLoaded && !audioModulesAvailable && (
+      {/* Android limitation notice */}
+      {Platform.OS === 'android' && (
+        <View style={styles.platformNotice}>
+          <Text style={styles.platformNoticeIcon}>📱</Text>
+          <Text style={styles.platformNoticeTitle}>Android STT Limitation</Text>
+          <Text style={styles.platformNoticeText}>
+            expo-av on Android uses MediaRecorder which doesn't support raw PCM/WAV recording required by Whisper.{'\n\n'}
+            For full STT on Android, use the React Native sample app with react-native-live-audio-stream.{'\n\n'}
+            iOS STT works correctly with expo-av.
+          </Text>
+        </View>
+      )}
+      
+      {/* iOS - Full STT support */}
+      {Platform.OS === 'ios' && isModelLoaded && !audioModulesAvailable && (
         <View style={styles.rebuildRequired}>
           <Text style={styles.rebuildIcon}>🔧</Text>
           <Text style={styles.rebuildTitle}>Rebuild Required for Recording</Text>
           <Text style={styles.rebuildText}>
             Audio recording requires expo-av.{'\n'}
-            Run: eas build --platform android --profile development
+            Run: eas build --platform ios --profile development
           </Text>
         </View>
       )}
       
-      {isModelLoaded && audioModulesAvailable && (
+      {Platform.OS === 'ios' && isModelLoaded && audioModulesAvailable && (
         <View style={styles.recordingSection}>
           <Animated.View style={[styles.micContainer, { transform: [{ scale: recordingAnim }] }]}>
             <TouchableOpacity
@@ -1278,6 +1308,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   rebuildText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  
+  // Platform Notice (Android limitation)
+  platformNotice: {
+    backgroundColor: '#1a1a2a',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#4A90D9',
+  },
+  platformNoticeIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  platformNoticeTitle: {
+    color: '#4A90D9',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  platformNoticeText: {
     color: '#888',
     fontSize: 14,
     textAlign: 'center',
