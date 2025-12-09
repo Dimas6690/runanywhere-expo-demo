@@ -73,8 +73,13 @@ eas build --platform ios --profile development
 ### Pre-built Dev Client
 
 Download our pre-built development client:
-- 📥 [Android APK](https://github.com/RunanywhereAI/runanywhere-expo-template/releases)
-- 📥 [iOS TestFlight](https://testflight.apple.com/join/XXXXX) *(coming soon)*
+- 📥 **Android APK**: [Download](https://expo.dev/artifacts/eas/gHZ2ANknUSsCZfEsYxPcFB.apk) - Anyone can install!
+- 📥 **iOS TestFlight**: Coming soon
+
+> **Note on iOS Distribution**: Apple requires either device registration (limited to 100 devices) 
+> or TestFlight for public distribution. To enable iOS "vibe coding" for everyone, you'll need to 
+> set up TestFlight distribution. Add `"distribution": "store"` to your eas.json build profile 
+> and submit via `eas submit --platform ios`. See [Expo iOS Submit docs](https://docs.expo.dev/submit/ios/).
 
 ## 📦 SDK Usage
 
