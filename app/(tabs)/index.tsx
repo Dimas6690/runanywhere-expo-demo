@@ -155,6 +155,16 @@ export default function RunAnywhereDemo() {
     initializeSDK();
   }, []);
 
+  // Keep selectedModel in sync with models list (for localPath updates)
+  useEffect(() => {
+    if (selectedModel && models.length > 0) {
+      const updatedModel = models.find(m => m.id === selectedModel.id);
+      if (updatedModel && updatedModel.localPath !== selectedModel.localPath) {
+        setSelectedModel(updatedModel);
+      }
+    }
+  }, [models]);
+
   const initializeSDK = async () => {
     if (!sdkAvailable) {
       setError('Development build required. Install the APK from EAS Build.');
@@ -213,8 +223,11 @@ export default function RunAnywhereDemo() {
   // ==========================================================================
 
   const handleSelectModel = (model: ModelInfo) => {
-    setSelectedModel(model);
+    // Find the full model info from the loaded models (includes localPath)
+    const fullModel = models.find(m => m.id === model.id) || model;
+    setSelectedModel(fullModel);
     setIsModelLoaded(false);
+    setResponse('');
   };
 
   const handleDownloadModel = async () => {
@@ -225,12 +238,18 @@ export default function RunAnywhereDemo() {
     setError(null);
 
     try {
-      await RunAnywhere.downloadModel(selectedModel.id, (progress: number) => {
+      // downloadModel returns the local path
+      const downloadedPath = await RunAnywhere.downloadModel(selectedModel.id, (progress: number) => {
         setDownloadProgress(Math.round(progress * 100));
       });
       
       await loadModels();
-      setSelectedModel(prev => prev ? { ...prev, isDownloaded: true } : null);
+      // Update selectedModel with the downloaded path
+      setSelectedModel(prev => prev ? { 
+        ...prev, 
+        isDownloaded: true, 
+        localPath: downloadedPath 
+      } : null);
     } catch (e: any) {
       setError(`Download failed: ${e.message}`);
     } finally {
