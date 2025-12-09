@@ -1,0 +1,45 @@
+# EAS Build Ignore File
+# Reduces upload size from 2.5GB to ~5MB
+
+# CRITICAL: Ignore all node_modules - EAS will npm install fresh
+node_modules
+
+# Expo cache
+.expo
+
+# iOS artifacts (not needed for Android build)
+ios
+*.xcframework
+*.xcworkspace
+*.xcodeproj
+
+# Android build cache
+android/build
+android/.gradle
+android/app/build
+
+# Git
+.git
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+
+# Build outputs
+dist
+build
+
+# Test files
+__tests__
+coverage
+
+# Archives
+*.tgz
+*.tar.gz
+*.zip
+
+# macOS
+.DS_Store
