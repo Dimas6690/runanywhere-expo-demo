@@ -34,14 +34,75 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Lazy load audio modules (requires rebuild with expo-speech/expo-av)
 let Speech: any = null;
 let Audio: any = null;
+let FileSystem: any = null;
 let audioModulesAvailable = false;
 try {
   Speech = require('expo-speech');
   Audio = require('expo-av').Audio;
+  FileSystem = require('expo-file-system');
   audioModulesAvailable = true;
 } catch (e) {
   console.log('[RunAnywhere Demo] Audio modules not available');
 }
+
+// Helper: Create WAV file from raw PCM base64 data
+const createWavFile = async (pcmBase64: string, sampleRate: number): Promise<string | null> => {
+  if (!FileSystem) return null;
+  
+  try {
+    // Decode base64 to get PCM bytes
+    const pcmBytes = Uint8Array.from(atob(pcmBase64), c => c.charCodeAt(0));
+    const numSamples = pcmBytes.length / 2; // 16-bit samples
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const dataSize = pcmBytes.length;
+    const fileSize = 36 + dataSize;
+
+    // Create WAV header (44 bytes)
+    const header = new ArrayBuffer(44);
+    const view = new DataView(header);
+    
+    // RIFF header
+    view.setUint32(0, 0x52494646, false); // "RIFF"
+    view.setUint32(4, fileSize, true);     // File size - 8
+    view.setUint32(8, 0x57415645, false);  // "WAVE"
+    
+    // fmt subchunk
+    view.setUint32(12, 0x666d7420, false); // "fmt "
+    view.setUint32(16, 16, true);          // Subchunk1 size (16 for PCM)
+    view.setUint16(20, 1, true);           // Audio format (1 = PCM)
+    view.setUint16(22, numChannels, true); // Num channels
+    view.setUint32(24, sampleRate, true);  // Sample rate
+    view.setUint32(28, byteRate, true);    // Byte rate
+    view.setUint16(32, blockAlign, true);  // Block align
+    view.setUint16(34, bitsPerSample, true); // Bits per sample
+    
+    // data subchunk
+    view.setUint32(36, 0x64617461, false); // "data"
+    view.setUint32(40, dataSize, true);    // Data size
+
+    // Combine header + PCM data
+    const wavBytes = new Uint8Array(44 + pcmBytes.length);
+    wavBytes.set(new Uint8Array(header), 0);
+    wavBytes.set(pcmBytes, 44);
+
+    // Convert to base64
+    const wavBase64 = btoa(String.fromCharCode(...wavBytes));
+    
+    // Save to file
+    const filePath = `${FileSystem.cacheDirectory}tts_output_${Date.now()}.wav`;
+    await FileSystem.writeAsStringAsync(filePath, wavBase64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    
+    return filePath;
+  } catch (e) {
+    console.log('[TTS] WAV creation error:', e);
+    return null;
+  }
+};
 
 // Import RunAnywhere SDK
 let RunAnywhere: any = null;
@@ -458,29 +519,40 @@ export default function RunAnywhereDemo() {
         
         // result.audio is base64 encoded PCM data
         if (result?.audio && result.audio.length > 0 && audioModulesAvailable) {
-          // Create WAV file from base64 audio and play it
           const sampleRate = result.sampleRate || 22050;
           const duration = result.duration || (result.numSamples / sampleRate) || 0;
           
-          setResponse(`🔊 Audio generated!\n\nDuration: ${duration.toFixed(2)}s\nSample Rate: ${sampleRate}Hz\n\n🎵 Playing audio...`);
+          setResponse(`🔊 Audio generated!\n\nDuration: ${duration.toFixed(2)}s\n\n⏳ Creating audio file...`);
           
-          // Play using expo-av
-          try {
-            // Decode base64 to create a data URI
-            const audioUri = `data:audio/wav;base64,${result.audio}`;
-            const { sound } = await Audio.Sound.createAsync({ uri: audioUri });
-            soundRef.current = sound;
-            await sound.playAsync();
+          // Create proper WAV file from raw PCM data
+          const wavPath = await createWavFile(result.audio, sampleRate);
+          
+          if (wavPath) {
+            setResponse(`🔊 Audio generated!\n\nDuration: ${duration.toFixed(2)}s\n\n🎵 Playing audio...`);
             
-            sound.setOnPlaybackStatusUpdate((status: any) => {
-              if (status.didJustFinish) {
-                setIsSpeaking(false);
-                setResponse(`✅ Playback complete!\n\nDuration: ${duration.toFixed(2)}s`);
+            try {
+              // Unload previous sound
+              if (soundRef.current) {
+                await soundRef.current.unloadAsync();
               }
-            });
-          } catch (playError: any) {
-            console.log('[TTS] Playback error:', playError.message);
-            setResponse(`🔊 Audio generated!\n\nDuration: ${duration.toFixed(2)}s\n\n⚠️ Playback failed: ${playError.message}`);
+              
+              const { sound } = await Audio.Sound.createAsync({ uri: wavPath });
+              soundRef.current = sound;
+              await sound.playAsync();
+              
+              sound.setOnPlaybackStatusUpdate((status: any) => {
+                if (status.didJustFinish) {
+                  setIsSpeaking(false);
+                  setResponse(`✅ Playback complete!\n\nDuration: ${duration.toFixed(2)}s`);
+                }
+              });
+            } catch (playError: any) {
+              console.log('[TTS] Playback error:', playError.message);
+              setResponse(`🔊 Audio generated!\n\nDuration: ${duration.toFixed(2)}s\n\n⚠️ Playback failed: ${playError.message}`);
+              setIsSpeaking(false);
+            }
+          } else {
+            setResponse(`🔊 Audio generated!\n\nDuration: ${duration.toFixed(2)}s\n\n⚠️ Could not create audio file`);
             setIsSpeaking(false);
           }
         } else {
