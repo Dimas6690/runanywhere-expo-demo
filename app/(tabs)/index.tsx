@@ -419,7 +419,11 @@ export default function RunAnywhereDemo() {
       setIsSpeaking(true);
       
       try {
-        const result = await RunAnywhere.synthesize(ttsText, { rate: 1.0, pitch: 1.0 });
+        const result = await RunAnywhere.synthesize(ttsText, { 
+          voice: 'default',  // Match sample app pattern
+          rate: 1.0, 
+          pitch: 1.0 
+        });
         const audioPath = result?.audioPath || result?.filePath || result;
         setResponse(`🔊 Audio generated!\n\nFile: ${audioPath}\n\n💡 To play audio, rebuild with expo-av`);
       } catch (e: any) {
