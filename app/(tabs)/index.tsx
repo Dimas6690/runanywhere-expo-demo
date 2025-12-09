@@ -109,7 +109,7 @@ const createWavFile = async (pcmBase64: string, sampleRate: number): Promise<str
     // Save to file
     const filePath = `${FileSystem.cacheDirectory}tts_output_${Date.now()}.wav`;
     await FileSystem.writeAsStringAsync(filePath, wavBase64, {
-      encoding: FileSystem.EncodingType.Base64,
+      encoding: 'base64',
     });
     
     console.log('[TTS] WAV file created:', filePath, 'size:', wavBytes.length);
