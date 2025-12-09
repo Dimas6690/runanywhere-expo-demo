@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,8 +7,11 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Speech from 'expo-speech';
+import { Audio } from 'expo-av';
 
 // =============================================================================
 // RunAnywhere SDK Integration
@@ -96,6 +99,13 @@ export default function HomeScreen() {
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
   const [backendInfo, setBackendInfo] = useState<string>('');
   const [registeredProviders, setRegisteredProviders] = useState<string[]>([]);
+  
+  // Audio states
+  const [isRecording, setIsRecording] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
 
   useEffect(() => {
     initializeSDK();
@@ -205,18 +215,24 @@ export default function HomeScreen() {
         setResponse(`Downloading ${smallestModel.name}...`);
         setDownloadProgress(0);
         
-        await RunAnywhere.downloadModel(smallestModel.id, (progress: number) => {
+        const downloadedPath = await RunAnywhere.downloadModel(smallestModel.id, (progress: number) => {
           setDownloadProgress(Math.round(progress * 100));
         });
         
         setDownloadProgress(null);
         await refreshModels();
-        model = smallestModel;
+        
+        // Use the downloaded path directly
+        setResponse(`Loading ${smallestModel.name}...`);
+        await RunAnywhere.loadTextModel(downloadedPath);
+        setLlmLoaded(true);
+        setResponse(`✅ LLM loaded: ${smallestModel.name}`);
+        return;
       }
       
-      // Load the model
+      // Load already downloaded model
       setResponse(`Loading ${model.name}...`);
-      const modelPath = await RunAnywhere.getModelPath(model.id);
+      const modelPath = model.localPath || await RunAnywhere.getModelPath(model.id);
       
       if (modelPath) {
         await RunAnywhere.loadTextModel(modelPath);
@@ -279,22 +295,31 @@ export default function HomeScreen() {
         setResponse(`Downloading ${smallestModel.name}...`);
         setDownloadProgress(0);
         
-        await RunAnywhere.downloadModel(smallestModel.id, (progress: number) => {
+        const downloadedPath = await RunAnywhere.downloadModel(smallestModel.id, (progress: number) => {
           setDownloadProgress(Math.round(progress * 100));
         });
         
         setDownloadProgress(null);
         await refreshModels();
-        model = smallestModel;
+        
+        // Use downloaded path directly
+        setResponse(`Loading ${smallestModel.name}...`);
+        await RunAnywhere.loadSTTModel(downloadedPath);
+        setSttLoaded(true);
+        setResponse(`✅ STT loaded: ${smallestModel.name}\n\nReady for transcription!`);
+        return;
       }
       
+      // Load already downloaded model
       setResponse(`Loading ${model.name}...`);
-      const modelPath = await RunAnywhere.getModelPath(model.id);
+      const modelPath = model.localPath || await RunAnywhere.getModelPath(model.id);
       
       if (modelPath) {
         await RunAnywhere.loadSTTModel(modelPath);
         setSttLoaded(true);
         setResponse(`✅ STT loaded: ${model.name}\n\nReady for transcription!`);
+      } else {
+        setError('Could not get STT model path');
       }
     } catch (e: any) {
       setError(`STT load failed: ${e.message}`);
@@ -303,26 +328,58 @@ export default function HomeScreen() {
     }
   };
 
-  const transcribeAudio = async () => {
-    if (!sttLoaded) {
-      setError('Please load an STT model first');
-      return;
+  const startRecording = async () => {
+    try {
+      // Request permissions
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        setError('Microphone permission denied');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      
+      recordingRef.current = recording;
+      setIsRecording(true);
+      setResponse('🎤 Recording... Tap "Stop" when done.');
+    } catch (e: any) {
+      setError(`Recording failed: ${e.message}`);
     }
+  };
+
+  const stopRecordingAndTranscribe = async () => {
+    if (!recordingRef.current) return;
 
     setIsLoading(true);
+    setIsRecording(false);
     setError(null);
 
     try {
-      // In a real app, you'd record audio here
-      // For demo, we'll show instructions
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+
+      if (!uri) {
+        setError('No audio recorded');
+        return;
+      }
+
+      setResponse(`🔄 Transcribing audio...\nFile: ${uri}`);
+
+      // Call RunAnywhere transcribe
+      const result = await RunAnywhere.transcribeFile(uri);
+      
       setResponse(
-        '🎤 STT Ready!\n\n' +
-        'To transcribe audio:\n' +
-        '1. Record audio using expo-av or react-native-audio\n' +
-        '2. Convert to base64\n' +
-        '3. Call: await RunAnywhere.transcribe(audioBase64)\n\n' +
-        'Or transcribe a file:\n' +
-        'await RunAnywhere.transcribeFile(filePath)'
+        `✅ Transcription Complete!\n\n` +
+        `📝 Text: "${result.text || result}"\n\n` +
+        `⏱️ Duration: ${result.duration ? result.duration.toFixed(2) + 's' : 'N/A'}`
       );
     } catch (e: any) {
       setError(`Transcription failed: ${e.message}`);
@@ -343,40 +400,76 @@ export default function HomeScreen() {
       const ttsModels = getModelsForCategory('speech-synthesis');
       console.log('TTS models:', ttsModels);
       
-      let model = ttsModels.find(m => m.isDownloaded);
+      // Filter out system-tts as it doesn't need download/load
+      const downloadableModels = ttsModels.filter(m => m.id !== 'system-tts');
+      let model = downloadableModels.find(m => m.isDownloaded);
       
       if (!model) {
-        const smallestModel = ttsModels[0];
+        const smallestModel = downloadableModels[0];
         if (!smallestModel) {
-          setError('No TTS models available');
+          setError('No downloadable TTS models available');
           return;
         }
         
         setResponse(`Downloading ${smallestModel.name}...`);
         setDownloadProgress(0);
         
-        await RunAnywhere.downloadModel(smallestModel.id, (progress: number) => {
+        const downloadedPath = await RunAnywhere.downloadModel(smallestModel.id, (progress: number) => {
           setDownloadProgress(Math.round(progress * 100));
         });
         
         setDownloadProgress(null);
         await refreshModels();
-        model = smallestModel;
+        
+        // Use downloaded path directly
+        setResponse(`Loading ${smallestModel.name}...`);
+        await RunAnywhere.loadTTSModel(downloadedPath);
+        setTtsLoaded(true);
+        setResponse(`✅ TTS loaded: ${smallestModel.name}\n\nReady for speech synthesis!`);
+        return;
       }
       
+      // Load already downloaded model
       setResponse(`Loading ${model.name}...`);
-      const modelPath = await RunAnywhere.getModelPath(model.id);
+      const modelPath = model.localPath || await RunAnywhere.getModelPath(model.id);
       
       if (modelPath) {
         await RunAnywhere.loadTTSModel(modelPath);
         setTtsLoaded(true);
         setResponse(`✅ TTS loaded: ${model.name}\n\nReady for speech synthesis!`);
+      } else {
+        setError('Could not get TTS model path');
       }
     } catch (e: any) {
       setError(`TTS load failed: ${e.message}`);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Use System TTS (no model needed, always works)
+  const speakWithSystemTTS = async () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
+      return;
+    }
+
+    setIsSpeaking(true);
+    setResponse(`🔊 Speaking: "${ttsText}"`);
+    
+    Speech.speak(ttsText, {
+      rate: 1.0,
+      pitch: 1.0,
+      onDone: () => {
+        setIsSpeaking(false);
+        setResponse(`✅ Finished speaking: "${ttsText}"`);
+      },
+      onError: (error) => {
+        setIsSpeaking(false);
+        setError(`System TTS error: ${error}`);
+      },
+    });
   };
 
   const synthesizeSpeech = async () => {
@@ -394,16 +487,56 @@ export default function HomeScreen() {
         pitch: 1.0,
       });
       
+      const audioPath = result.audioPath || result.filePath || result;
+      
       setResponse(
-        `🔊 Speech synthesized!\n\n` +
-        `Audio file: ${result.audioPath || result.filePath || 'Generated'}\n` +
+        `✅ Speech synthesized!\n\n` +
+        `Audio file: ${audioPath}\n` +
         `Duration: ${result.duration ? result.duration.toFixed(2) + 's' : 'N/A'}\n\n` +
         `Text: "${ttsText}"`
       );
+
+      // Play the audio file
+      if (audioPath && typeof audioPath === 'string') {
+        await playAudio(audioPath);
+      }
     } catch (e: any) {
       setError(`Synthesis failed: ${e.message}`);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const playAudio = async (uri: string) => {
+    try {
+      // Stop previous sound if playing
+      if (soundRef.current) {
+        await soundRef.current.unloadAsync();
+      }
+
+      setIsPlaying(true);
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: uri.startsWith('file://') ? uri : `file://${uri}` }
+      );
+      soundRef.current = sound;
+      
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          setIsPlaying(false);
+        }
+      });
+
+      await sound.playAsync();
+    } catch (e: any) {
+      setIsPlaying(false);
+      console.log('Audio playback error:', e.message);
+    }
+  };
+
+  const stopAudio = async () => {
+    if (soundRef.current) {
+      await soundRef.current.stopAsync();
+      setIsPlaying(false);
     }
   };
 
@@ -560,14 +693,26 @@ export default function HomeScreen() {
                   <Text style={styles.buttonText}>📥 Load STT Model</Text>}
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                style={[styles.button, styles.runButton]}
-                onPress={transcribeAudio}
-                disabled={isLoading}
-              >
-                {isLoading ? <ActivityIndicator color="#fff" /> : 
-                  <Text style={styles.buttonText}>🎙️ Transcribe</Text>}
-              </TouchableOpacity>
+              <View style={styles.buttonRow}>
+                {!isRecording ? (
+                  <TouchableOpacity
+                    style={[styles.button, styles.runButton, { flex: 1 }]}
+                    onPress={startRecording}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.buttonText}>🎙️ Start Recording</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.button, styles.stopButton, { flex: 1 }]}
+                    onPress={stopRecordingAndTranscribe}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? <ActivityIndicator color="#fff" /> : 
+                      <Text style={styles.buttonText}>⏹️ Stop & Transcribe</Text>}
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
           </View>
         )}
@@ -577,6 +722,32 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>🔊 Text-to-Speech (TTS)</Text>
             
+            <TextInput
+              style={styles.textInput}
+              value={ttsText}
+              onChangeText={setTtsText}
+              placeholder="Enter text to speak..."
+              placeholderTextColor="#666"
+              multiline
+            />
+            
+            {/* System TTS - Always available, no download needed */}
+            <TouchableOpacity
+              style={[styles.button, isSpeaking ? styles.stopButton : styles.systemButton]}
+              onPress={speakWithSystemTTS}
+            >
+              <Text style={styles.buttonText}>
+                {isSpeaking ? '⏹️ Stop' : '🗣️ System TTS (Built-in)'}
+              </Text>
+            </TouchableOpacity>
+            
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+            
+            {/* Neural TTS - Requires model download */}
             {!ttsLoaded ? (
               <TouchableOpacity
                 style={[styles.button, styles.loadButton]}
@@ -584,28 +755,32 @@ export default function HomeScreen() {
                 disabled={isLoading}
               >
                 {isLoading ? <ActivityIndicator color="#fff" /> : 
-                  <Text style={styles.buttonText}>📥 Load TTS Model</Text>}
+                  <Text style={styles.buttonText}>📥 Load Neural TTS Model</Text>}
               </TouchableOpacity>
             ) : (
-              <>
-                <TextInput
-                  style={styles.textInput}
-                  value={ttsText}
-                  onChangeText={setTtsText}
-                  placeholder="Enter text to speak..."
-                  placeholderTextColor="#666"
-                  multiline
-                />
+              <View style={styles.buttonRow}>
                 <TouchableOpacity
-                  style={[styles.button, styles.runButton]}
+                  style={[styles.button, styles.runButton, { flex: 1 }]}
                   onPress={synthesizeSpeech}
-                  disabled={isLoading}
+                  disabled={isLoading || isPlaying}
                 >
                   {isLoading ? <ActivityIndicator color="#fff" /> : 
-                    <Text style={styles.buttonText}>🔊 Synthesize Speech</Text>}
+                    <Text style={styles.buttonText}>🔊 Neural TTS</Text>}
                 </TouchableOpacity>
-              </>
+                {isPlaying && (
+                  <TouchableOpacity
+                    style={[styles.button, styles.stopButton, { marginLeft: 8 }]}
+                    onPress={stopAudio}
+                  >
+                    <Text style={styles.buttonText}>⏹️</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
+            
+            <Text style={styles.ttsHint}>
+              💡 System TTS uses device voices. Neural TTS uses AI models for more natural speech.
+            </Text>
           </View>
         )}
 
@@ -798,6 +973,38 @@ const styles = StyleSheet.create({
   },
   runButton: {
     backgroundColor: '#4CAF50',
+  },
+  stopButton: {
+    backgroundColor: '#F44336',
+  },
+  systemButton: {
+    backgroundColor: '#9C27B0',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#333',
+  },
+  dividerText: {
+    color: '#666',
+    paddingHorizontal: 12,
+    fontSize: 12,
+  },
+  ttsHint: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 12,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   buttonText: {
     color: '#fff',
