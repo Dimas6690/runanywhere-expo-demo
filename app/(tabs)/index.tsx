@@ -14,6 +14,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // RunAnywhere SDK Integration
 // =============================================================================
 //
+// ARCHITECTURE:
+//   The SDK uses a provider-based architecture for different AI backends:
+//
+//   1. LlamaCppProvider - For GGUF models (LLM text generation)
+//      - Models from Hugging Face (SmolLM2, LFM2, Qwen, etc.)
+//      - Uses llama.cpp for inference
+//
+//   2. ONNXProvider - For ONNX models (STT/TTS)
+//      - STT: Whisper models from sherpa-onnx
+//      - TTS: VITS/Piper models from sherpa-onnx
+//      - Uses ONNX Runtime for inference
+//
+//   Providers are auto-registered during RunAnywhere.initialize():
+//   - LlamaCppProvider.register() -> Handles .gguf models
+//   - registerONNXProviders() -> Handles STT/TTS models
+//
 // DEVELOPMENT MODE (this demo):
 //   - No API key required
 //   - All inference runs 100% on-device
@@ -27,16 +43,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 //   - Hybrid on-device + cloud inference with smart fallbacks
 //   - Usage tracking, rate limiting, and billing
 //
+// MODEL SOURCES:
+//   - LLM: https://huggingface.co/ (GGUF format)
+//   - STT: https://github.com/k2-fsa/sherpa-onnx (Whisper ONNX)
+//   - TTS: https://github.com/k2-fsa/sherpa-onnx (VITS/Piper ONNX)
+//
 // =============================================================================
 
 // Import RunAnywhere SDK
 // Note: This requires a development build (not Expo Go)
 let RunAnywhere: any = null;
+let ModelRegistry: any = null;
+let LlamaCppProvider: any = null;
 let sdkAvailable = false;
 
 try {
   const sdk = require('runanywhere-react-native');
   RunAnywhere = sdk.RunAnywhere;
+  ModelRegistry = sdk.ModelRegistry;
+  LlamaCppProvider = sdk.LlamaCppProvider;
   sdkAvailable = true;
 } catch (e) {
   console.log('RunAnywhere SDK not available (expected in Expo Go)');
@@ -69,6 +94,8 @@ export default function HomeScreen() {
   
   const [availableModels, setAvailableModels] = useState<ModelInfo[]>([]);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
+  const [backendInfo, setBackendInfo] = useState<string>('');
+  const [registeredProviders, setRegisteredProviders] = useState<string[]>([]);
 
   useEffect(() => {
     initializeSDK();
@@ -97,12 +124,36 @@ export default function HomeScreen() {
       // });
       // =================================================================
       
+      // Initialize SDK - this auto-registers providers:
+      // 1. LlamaCppProvider.register() - for GGUF models
+      // 2. registerONNXProviders() - for STT/TTS ONNX models
       await RunAnywhere.initialize({
         // Development mode - no API key needed
         // All inference runs locally on-device
       });
       setIsInitialized(true);
       setError(null);
+      
+      // Get backend info to show registered providers
+      try {
+        const info = await RunAnywhere.getBackendInfo();
+        setBackendInfo(JSON.stringify(info, null, 2));
+        
+        // Determine which providers are registered based on available models
+        const providers: string[] = [];
+        const models = await RunAnywhere.getAvailableModels();
+        
+        const hasGGUF = models.some((m: ModelInfo) => m.category === 'language');
+        const hasSTT = models.some((m: ModelInfo) => m.category === 'speech-recognition');
+        const hasTTS = models.some((m: ModelInfo) => m.category === 'text-to-speech');
+        
+        if (hasGGUF) providers.push('LlamaCpp (GGUF)');
+        if (hasSTT || hasTTS) providers.push('ONNX Runtime (STT/TTS)');
+        
+        setRegisteredProviders(providers);
+      } catch (e) {
+        console.log('Could not get backend info:', e);
+      }
       
       // Fetch available models
       await refreshModels();
@@ -400,6 +451,17 @@ export default function HomeScreen() {
               {isInitialized ? '✓ Yes' : '○ No'}
             </Text>
           </View>
+          
+          {/* Registered Providers */}
+          {registeredProviders.length > 0 && (
+            <View style={styles.providersSection}>
+              <Text style={styles.providersLabel}>Registered Providers:</Text>
+              {registeredProviders.map((provider, idx) => (
+                <Text key={idx} style={styles.providerItem}>• {provider}</Text>
+              ))}
+            </View>
+          )}
+          
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>LLM Model:</Text>
             <Text style={[styles.statusValue, { color: llmLoaded ? '#4CAF50' : '#888' }]}>
@@ -643,6 +705,25 @@ const styles = StyleSheet.create({
   statusValue: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  providersSection: {
+    marginTop: 8,
+    marginBottom: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+  },
+  providersLabel: {
+    color: '#2196F3',
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  providerItem: {
+    color: '#4CAF50',
+    fontSize: 12,
+    marginLeft: 8,
+    marginTop: 2,
   },
   modeSelector: {
     flexDirection: 'row',
