@@ -521,7 +521,18 @@ export default function RunAnywhereDemo() {
 
   const renderSTTContent = () => (
     <View style={styles.contentSection}>
-      {isModelLoaded && (
+      {isModelLoaded && !audioModulesAvailable && (
+        <View style={styles.rebuildRequired}>
+          <Text style={styles.rebuildIcon}>🔧</Text>
+          <Text style={styles.rebuildTitle}>Rebuild Required for Recording</Text>
+          <Text style={styles.rebuildText}>
+            Audio recording requires expo-av.{'\n'}
+            Run: eas build --platform android --profile development
+          </Text>
+        </View>
+      )}
+      
+      {isModelLoaded && audioModulesAvailable && (
         <View style={styles.recordingSection}>
           <Animated.View style={[styles.micContainer, { transform: [{ scale: recordingAnim }] }]}>
             <TouchableOpacity
@@ -1008,6 +1019,32 @@ const styles = StyleSheet.create({
   responseText: {
     color: '#fff',
     fontSize: 15,
+    lineHeight: 22,
+  },
+  
+  // Rebuild Required
+  rebuildRequired: {
+    backgroundColor: '#2a2a1a',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  rebuildIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  rebuildTitle: {
+    color: '#FF9800',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  rebuildText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
     lineHeight: 22,
   },
   
