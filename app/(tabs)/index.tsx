@@ -111,6 +111,7 @@ export default function RunAnywhereDemo() {
   const [transcript, setTranscript] = useState('');
   const recordingAnim = useRef(new Animated.Value(1)).current;
   const recordingRef = useRef<any>(null);
+  const soundRef = useRef<any>(null);
   
   // Custom model URL
   const [showAddModel, setShowAddModel] = useState(false);
@@ -443,18 +444,54 @@ export default function RunAnywhereDemo() {
       
       try {
         // voice: '' or omitted → uses model's default voice
-        // The SDK now defaults to '' if voice is not provided
         const result = await RunAnywhere.synthesize(ttsText, { 
           rate: 1.0, 
           pitch: 1.0 
         });
-        const audioPath = result?.audioPath || result?.filePath || result;
-        setResponse(`🔊 Audio generated!\n\nFile: ${audioPath}\n\n💡 To play audio, rebuild with expo-av`);
+        
+        console.log('[TTS] Synthesis result:', {
+          sampleRate: result?.sampleRate,
+          numSamples: result?.numSamples,
+          duration: result?.duration,
+          audioLength: result?.audio?.length || 0,
+        });
+        
+        // result.audio is base64 encoded PCM data
+        if (result?.audio && result.audio.length > 0 && audioModulesAvailable) {
+          // Create WAV file from base64 audio and play it
+          const sampleRate = result.sampleRate || 22050;
+          const duration = result.duration || (result.numSamples / sampleRate) || 0;
+          
+          setResponse(`🔊 Audio generated!\n\nDuration: ${duration.toFixed(2)}s\nSample Rate: ${sampleRate}Hz\n\n🎵 Playing audio...`);
+          
+          // Play using expo-av
+          try {
+            // Decode base64 to create a data URI
+            const audioUri = `data:audio/wav;base64,${result.audio}`;
+            const { sound } = await Audio.Sound.createAsync({ uri: audioUri });
+            soundRef.current = sound;
+            await sound.playAsync();
+            
+            sound.setOnPlaybackStatusUpdate((status: any) => {
+              if (status.didJustFinish) {
+                setIsSpeaking(false);
+                setResponse(`✅ Playback complete!\n\nDuration: ${duration.toFixed(2)}s`);
+              }
+            });
+          } catch (playError: any) {
+            console.log('[TTS] Playback error:', playError.message);
+            setResponse(`🔊 Audio generated!\n\nDuration: ${duration.toFixed(2)}s\n\n⚠️ Playback failed: ${playError.message}`);
+            setIsSpeaking(false);
+          }
+        } else {
+          setResponse(`🔊 Audio generated!\n\nSample Rate: ${result?.sampleRate || 'N/A'}Hz\nSamples: ${result?.numSamples || 0}\n\n${!audioModulesAvailable ? '💡 Rebuild with expo-av for playback' : '⚠️ No audio data returned'}`);
+          setIsSpeaking(false);
+        }
       } catch (e: any) {
         setError(`Synthesis failed: ${e.message}`);
+        setIsSpeaking(false);
       } finally {
         setIsLoading(false);
-        setIsSpeaking(false);
       }
     }
   };
