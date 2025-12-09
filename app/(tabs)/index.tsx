@@ -614,8 +614,16 @@ export default function RunAnywhereDemo() {
         }
         wavBase64 = btoa(wavBase64);
         
-        audioUri = `${FileSystem.cacheDirectory}stt_recording_${Date.now()}.wav`;
-        await FileSystem.writeAsStringAsync(audioUri, wavBase64, { encoding: 'base64' });
+        const timestamp = Date.now();
+        const fileName = `stt_recording_${timestamp}.wav`;
+        const cacheDir = FileSystem.cacheDirectory || '';
+        
+        // Write file using FileSystem (expects file:// URI)
+        const writeUri = `${cacheDir}${fileName}`;
+        await FileSystem.writeAsStringAsync(writeUri, wavBase64, { encoding: 'base64' });
+        
+        // SDK needs path WITHOUT file:// prefix
+        audioUri = writeUri.startsWith('file://') ? writeUri.substring(7) : writeUri;
         
         console.log('[STT] Android: WAV file written:', audioUri, 'size:', wavData.length);
         audioChunksRef.current = [];
@@ -637,13 +645,15 @@ export default function RunAnywhereDemo() {
           return;
         }
         
-        audioUri = uri;
+        // SDK needs path WITHOUT file:// prefix
+        audioUri = uri.startsWith('file://') ? uri.substring(7) : uri;
         console.log('[STT] iOS: Recording saved:', audioUri);
       }
 
-      // Transcribe with RunAnywhere SDK
-      console.log('[STT] Transcribing:', audioUri);
-      const result = await RunAnywhere.transcribeFile(audioUri);
+      // Transcribe with RunAnywhere SDK (ensure no file:// prefix)
+      const cleanPath = audioUri.startsWith('file://') ? audioUri.substring(7) : audioUri;
+      console.log('[STT] Transcribing:', cleanPath);
+      const result = await RunAnywhere.transcribeFile(cleanPath);
       console.log('[STT] Transcription result:', result);
       setTranscript(result.text || result);
       
