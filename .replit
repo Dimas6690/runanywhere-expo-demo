@@ -1,15 +1,30 @@
-# RunAnywhere Expo Template
-# https://runanywhere.ai
-
-run = "npx expo start --tunnel"
+run = "npm install && npx expo start --tunnel --clear"
 
 [nix]
 channel = "stable-24_05"
 
-[deployment]
-run = ["sh", "-c", "npx expo start --tunnel"]
+[env]
+PATH = "/home/runner/$REPL_SLUG/.config/npm/node_global/bin:/home/runner/$REPL_SLUG/node_modules/.bin:./node_modules/.bin"
+npm_config_prefix = "/home/runner/$REPL_SLUG/.config/npm/node_global"
+
+[packager]
+language = "nodejs"
+
+[packager.features]
+packageSearch = true
+guessImports = true
+enabledForHosting = false
+
+[languages]
+[languages.javascript]
+pattern = "**/*.{js,jsx,ts,tsx}"
+
+[languages.javascript.languageServer]
+start = "typescript-language-server --stdio"
 
 [[ports]]
 localPort = 8081
 externalPort = 80
 
+[deployment]
+run = ["sh", "-c", "npm install && npx expo start --tunnel --clear"]

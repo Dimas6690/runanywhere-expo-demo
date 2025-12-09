@@ -3,7 +3,7 @@
 On-device AI demo with RunAnywhere SDK for React Native + Expo.
 
 [![npm](https://img.shields.io/npm/v/runanywhere-react-native)](https://www.npmjs.com/package/runanywhere-react-native)
-[![Run on Replit](https://replit.com/badge/github/RunanywhereAI/runanywhere-expo-template)](https://replit.com/@RunAnywhere/runanywhere-demo)
+[![Run on Replit](https://replit.com/badge/github/RunanywhereAI/runanywhere-expo-demo)](https://replit.com/new/github/RunanywhereAI/runanywhere-expo-demo)
 
 ## ✨ Features
 
@@ -37,8 +37,8 @@ This template runs in **Development Mode** - perfect for prototyping!
 
 ```bash
 # Clone the template
-git clone https://github.com/RunanywhereAI/runanywhere-expo-template
-cd runanywhere-expo-template
+git clone https://github.com/RunanywhereAI/runanywhere-expo-demo
+cd runanywhere-expo-demo
 
 # Install dependencies
 npm install
