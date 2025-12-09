@@ -419,8 +419,9 @@ export default function RunAnywhereDemo() {
       setIsSpeaking(true);
       
       try {
+        // voice: '' or omitted → uses model's default voice
+        // The SDK now defaults to '' if voice is not provided
         const result = await RunAnywhere.synthesize(ttsText, { 
-          voice: 'default',  // Match sample app pattern
           rate: 1.0, 
           pitch: 1.0 
         });
