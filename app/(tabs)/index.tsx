@@ -46,74 +46,93 @@ try {
   console.log('[RunAnywhere Demo] Audio modules not available');
 }
 
-// Helper: Convert Uint8Array to base64 in chunks (avoids stack overflow)
-const uint8ArrayToBase64 = (bytes: Uint8Array): string => {
-  const chunkSize = 8192;
-  let result = '';
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-    result += String.fromCharCode.apply(null, Array.from(chunk));
-  }
-  return btoa(result);
-};
-
-// Helper: Create WAV file from raw PCM base64 data
-const createWavFile = async (pcmBase64: string, sampleRate: number): Promise<string | null> => {
+/**
+ * Convert base64 PCM float32 audio to WAV file
+ * The audio data from TTS is base64-encoded float32 PCM samples
+ * (Same approach as the sample React Native app)
+ */
+const createWavFile = async (audioBase64: string, audioSampleRate: number): Promise<string | null> => {
   if (!FileSystem) return null;
   
   try {
-    // Decode base64 to get PCM bytes (in chunks to avoid stack overflow)
-    const binaryString = atob(pcmBase64);
-    const pcmBytes = new Uint8Array(binaryString.length);
+    // Decode base64 to get raw bytes
+    const binaryString = atob(audioBase64);
+    const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
-      pcmBytes[i] = binaryString.charCodeAt(i);
+      bytes[i] = binaryString.charCodeAt(i);
     }
-    
-    const numChannels = 1;
-    const bitsPerSample = 16;
-    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
-    const blockAlign = numChannels * (bitsPerSample / 8);
-    const dataSize = pcmBytes.length;
-    const fileSize = 36 + dataSize;
 
-    // Create WAV header (44 bytes)
-    const header = new ArrayBuffer(44);
-    const view = new DataView(header);
-    
+    // Convert float32 samples to int16
+    const floatView = new Float32Array(bytes.buffer);
+    const numSamples = floatView.length;
+    const int16Samples = new Int16Array(numSamples);
+
+    for (let i = 0; i < numSamples; i++) {
+      // Clamp and convert to int16 range
+      const sample = Math.max(-1, Math.min(1, floatView[i]!));
+      int16Samples[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+    }
+
+    // Create WAV header
+    const wavDataSize = int16Samples.length * 2;
+    const wavBuffer = new ArrayBuffer(44 + wavDataSize);
+    const wavView = new DataView(wavBuffer);
+
     // RIFF header
-    view.setUint32(0, 0x52494646, false); // "RIFF"
-    view.setUint32(4, fileSize, true);     // File size - 8
-    view.setUint32(8, 0x57415645, false);  // "WAVE"
-    
-    // fmt subchunk
-    view.setUint32(12, 0x666d7420, false); // "fmt "
-    view.setUint32(16, 16, true);          // Subchunk1 size (16 for PCM)
-    view.setUint16(20, 1, true);           // Audio format (1 = PCM)
-    view.setUint16(22, numChannels, true); // Num channels
-    view.setUint32(24, sampleRate, true);  // Sample rate
-    view.setUint32(28, byteRate, true);    // Byte rate
-    view.setUint16(32, blockAlign, true);  // Block align
-    view.setUint16(34, bitsPerSample, true); // Bits per sample
-    
-    // data subchunk
-    view.setUint32(36, 0x64617461, false); // "data"
-    view.setUint32(40, dataSize, true);    // Data size
+    wavView.setUint8(0, 0x52); // R
+    wavView.setUint8(1, 0x49); // I
+    wavView.setUint8(2, 0x46); // F
+    wavView.setUint8(3, 0x46); // F
+    wavView.setUint32(4, 36 + wavDataSize, true); // File size - 8
+    wavView.setUint8(8, 0x57); // W
+    wavView.setUint8(9, 0x41); // A
+    wavView.setUint8(10, 0x56); // V
+    wavView.setUint8(11, 0x45); // E
 
-    // Combine header + PCM data
-    const wavBytes = new Uint8Array(44 + pcmBytes.length);
-    wavBytes.set(new Uint8Array(header), 0);
-    wavBytes.set(pcmBytes, 44);
+    // fmt chunk
+    wavView.setUint8(12, 0x66); // f
+    wavView.setUint8(13, 0x6d); // m
+    wavView.setUint8(14, 0x74); // t
+    wavView.setUint8(15, 0x20); // (space)
+    wavView.setUint32(16, 16, true); // fmt chunk size
+    wavView.setUint16(20, 1, true); // Audio format (PCM = 1)
+    wavView.setUint16(22, 1, true); // Number of channels (mono = 1)
+    wavView.setUint32(24, audioSampleRate, true); // Sample rate
+    wavView.setUint32(28, audioSampleRate * 2, true); // Byte rate
+    wavView.setUint16(32, 2, true); // Block align
+    wavView.setUint16(34, 16, true); // Bits per sample
 
-    // Convert to base64 in chunks (avoids stack overflow for large files)
-    const wavBase64 = uint8ArrayToBase64(wavBytes);
-    
-    // Save to file
-    const filePath = `${FileSystem.cacheDirectory}tts_output_${Date.now()}.wav`;
+    // data chunk
+    wavView.setUint8(36, 0x64); // d
+    wavView.setUint8(37, 0x61); // a
+    wavView.setUint8(38, 0x74); // t
+    wavView.setUint8(39, 0x61); // a
+    wavView.setUint32(40, wavDataSize, true); // Data size
+
+    // Copy audio data
+    const wavBytes = new Uint8Array(wavBuffer);
+    const int16Bytes = new Uint8Array(int16Samples.buffer);
+    for (let i = 0; i < int16Bytes.length; i++) {
+      wavBytes[44 + i] = int16Bytes[i]!;
+    }
+
+    // Convert to base64 and write to file
+    let wavBase64 = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < wavBytes.length; i += chunkSize) {
+      const chunk = wavBytes.subarray(i, Math.min(i + chunkSize, wavBytes.length));
+      for (let j = 0; j < chunk.length; j++) {
+        wavBase64 += String.fromCharCode(chunk[j]!);
+      }
+    }
+    wavBase64 = btoa(wavBase64);
+
+    const filePath = `${FileSystem.cacheDirectory}tts_${Date.now()}.wav`;
     await FileSystem.writeAsStringAsync(filePath, wavBase64, {
       encoding: 'base64',
     });
-    
-    console.log('[TTS] WAV file created:', filePath, 'size:', wavBytes.length);
+
+    console.log('[TTS] WAV file created:', filePath, 'samples:', numSamples);
     return filePath;
   } catch (e) {
     console.log('[TTS] WAV creation error:', e);
